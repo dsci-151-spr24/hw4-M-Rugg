@@ -115,6 +115,7 @@ gss16_advfront <- gss16 %>%
 
 ```{r eval=FALSE}
 set.seed(1122)
+
 gss16_split <- initial_split(gss16_advfront)
 gss16_train <- training(gss16_split)
 gss16_test  <- testing(gss16_split)
