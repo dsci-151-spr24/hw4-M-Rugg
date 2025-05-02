@@ -130,24 +130,24 @@ gss16_test  <- testing(gss16_split)
     -   `step_dummy()` to create dummy variables for `all_nominal()` variables that are predictors, i.e. `all_predictors()`
 
 ```{r eval=FALSE}
-gss16_rec_1 <- recipe(___ ~ ___, data = ___) %>%
-  step_other(wrkstat, threshold = ___, other = "Other") %>%
+gss16_rec_1 <- recipe(advfront ~., data = gss16_train) %>% # creates a recipe for the model to predict advfront from all other variables in office_train
+  step_other(wrkstat, threshold = 0.10, other = "Other") %>% # combines values that occur less than 10% of the time in wrkstat into "other"
   step_dummy(all_nominal(), -all_outcomes())
 ```
 
 6.  Specify a logistic regression model using `"glm"` as the engine. Name this specification `gss16_spec`. Sample code is provided below.
 
 ```{r eval=FALSE}
-gss16_spec <- ___() %>%
-  set_engine("___")
+gss16_spec <- logistic_reg() %>%
+  set_engine("glm")            # sets engine to generalized linear model
 ```
 
 7.  Build a workflow that uses the recipe you defined (`gss16_rec`) and the model you specified (`gss16_spec`). Name this workflow `gss16_wflow_1`. Sample code is provided below.
 
 ```{r eval=FALSE}
 gss16_wflow_1 <- workflow() %>%
-  add_model(___) %>%
-  add_recipe(___)
+  add_model(gss16_spec) %>%
+  add_recipe(gss16_rec_1)
 ```
 
 8.  Perform 5-fold cross validation.
@@ -162,15 +162,20 @@ gss16_wflow_1 <- workflow() %>%
     -   report the average area under the ROC curve and the accuracy for all cross validation folds `collect_metrics()`
 
 ```{r eval=FALSE}
-set.seed(___)
-gss16_folds <- vfold_cv(___, v = ___)
+set.seed(365)
+gss16_folds <- vfold_cv(gss16_train, v = 5) # sets the data and number of folds
 
 gss16_fit_rs_1 <- gss16_wflow_1 %>%
-  fit_resamples(___)
+  fit_resamples(gss16_folds)     # performs the cross validation
 
-collect_metrics(___, summarize = FALSE)
-collect_metrics(___)
+collect_metrics(gss16_fit_rs_1, summarize = FALSE) %>%
+  filter(.metric == "accuracy" | .metric == "roc_auc") # restricted to accuracy and area under the ROC curve so the output is easier to read and fits on one page
+collect_metrics(gss16_fit_rs_1)
 ```
+
+***The folds were fairly accurate and consistent in their accuracy values ranging from 0.794 to 0.864. The area under ROC curve values for the fold were also roughly consistent ranging from 0.557 to 0.663. However, these values are quite low considering 0.5 is the probability of random guessing.***
+
+***The average area under the ROC curve and accuracy was 0.618 and 0.841 respectively. While the model was fairly accurate, the area under the ROC curve was quite low.***
 
 9.  Now, try a different, simpler model: predict `advfront` from only `polviews` and `educ`.
     Specifically,
