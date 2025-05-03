@@ -6,7 +6,7 @@ output: html_document
 
 ```{r include = FALSE}
 knitr::opts_chunk$set(
-  eval = FALSE,
+  eval = TRUE,
   out.width = "80%",
   fig.asp = 0.618,
   fig.width = 10,
@@ -69,8 +69,8 @@ It's important that you don't recode the NAs, just the remaining levels.
 1.  Re-level the `advfront` variable such that it has two levels: `Strongly agree` and "`Agree"` combined into a new level called `agree` and the remaining levels (except `NA`s) combined into "`Not agree"`. Then, re-order the levels in the following order: `"Agree"` and `"Not agree"`. Finally, `count()` how many times each new level appears in the `advfront` variable.
 
 ``` {r}
-gss16 %>%
-  count(advfront)         # pulls up exact spelling
+#gss16 %>%
+  #count(advfront)         # pulls up exact spelling
 
 
 gss16 <- gss16 %>%
@@ -105,7 +105,7 @@ gss16 %>%
 
 3.  Create a new data frame called `gss16_advfront` that includes the variables `advfront`, `educ`, `polviews`, and `wrkstat`. Then, use the `drop_na()` function to remove rows that contain `NA`s from this new data frame. Sample code is provided below.
 
-```{r eval=FALSE}
+```{r eval=TRUE}
 gss16_advfront <- gss16 %>%
   select(advfront, educ, polviews, wrkstat) %>% #selects only relevant columns
   drop_na()                    # removes na
@@ -113,10 +113,10 @@ gss16_advfront <- gss16 %>%
 
 4.  Split the data into training (75%) and testing (25%) data sets. Make sure to set a seed before you do the `initial_split()`. Call the training data `gss16_train` and the testing data `gss16_test`. Sample code is provided below. Use these specific names to make it easier to follow the rest of the instructions.
 
-```{r eval=FALSE}
+```{r eval=TRUE}
 set.seed(1122)
 
-gss16_split <- initial_split(gss16_advfront)
+gss16_split <- initial_split(gss16_advfront, prop = 0.75)
 gss16_train <- training(gss16_split)
 gss16_test  <- testing(gss16_split)
 ```
@@ -129,7 +129,7 @@ gss16_test  <- testing(gss16_split)
 
     -   `step_dummy()` to create dummy variables for `all_nominal()` variables that are predictors, i.e. `all_predictors()`
 
-```{r eval=FALSE}
+```{r eval=TRUE}
 gss16_rec_1 <- recipe(advfront ~., data = gss16_train) %>% # creates a recipe for the model to predict advfront from all other variables in office_train
   step_other(wrkstat, threshold = 0.10, other = "Other") %>% # combines values that occur less than 10% of the time in wrkstat into "other"
   step_dummy(all_nominal(), -all_outcomes())
@@ -137,14 +137,14 @@ gss16_rec_1 <- recipe(advfront ~., data = gss16_train) %>% # creates a recipe fo
 
 6.  Specify a logistic regression model using `"glm"` as the engine. Name this specification `gss16_spec`. Sample code is provided below.
 
-```{r eval=FALSE}
+```{r eval=TRUE}
 gss16_spec <- logistic_reg() %>%
   set_engine("glm")            # sets engine to generalized linear model
 ```
 
 7.  Build a workflow that uses the recipe you defined (`gss16_rec`) and the model you specified (`gss16_spec`). Name this workflow `gss16_wflow_1`. Sample code is provided below.
 
-```{r eval=FALSE}
+```{r eval=TRUE}
 gss16_wflow_1 <- workflow() %>%
   add_model(gss16_spec) %>%
   add_recipe(gss16_rec_1)
@@ -161,7 +161,7 @@ gss16_wflow_1 <- workflow() %>%
 
     -   report the average area under the ROC curve and the accuracy for all cross validation folds `collect_metrics()`
 
-```{r eval=FALSE}
+```{r eval=TRUE}
 set.seed(365)
 gss16_folds <- vfold_cv(gss16_train, v = 5) # sets the data and number of folds
 
@@ -184,21 +184,85 @@ collect_metrics(gss16_fit_rs_1)
     -   redefine the workflow with the new recipe (and name this new workflow `gss16_wflow_2`),
     -   perform cross validation, and
     -   report the average area under the ROC curve and the accuracy for all cross validation folds `collect_metrics()`.
+    
+```{r eval=TRUE}
+gss16_rec_2 <- recipe(advfront ~., data = gss16_train) %>% # creates a recipe for the model to predict advfront from all other variables in office_train
+  step_rm(wrkstat) %>% # removes wrkstat
+  step_dummy(all_nominal(), -all_outcomes())
+```
 
+```{r eval=TRUE}
+gss16_wflow_2 <- workflow() %>%
+  add_model(gss16_spec) %>%
+  add_recipe(gss16_rec_2)
+```
+
+```{r eval=TRUE}
+set.seed(365)
+gss16_folds <- vfold_cv(gss16_train, v = 5) # sets the data and number of folds
+
+gss16_fit_rs_2 <- gss16_wflow_2 %>%
+  fit_resamples(gss16_folds)     # performs the cross validation
+
+collect_metrics(gss16_fit_rs_2)
+```
 10. Comment on which model performs better (one including `wrkstat`, model 1, or the one excluding `wrkstat`, model 2) on the training data based on area under the ROC curve.
+
+***Based on the area under the ROC curve, model 2, the one excluding `wrkstat`, (`roc_auc` = 0.633) performed slightly better as the value was closer to 1 than model 1 (`roc_auc` = 0.618).***
 
 11. Fit both models to the testing data, plot the ROC curves for the predictions for both models, and calculate the areas under the ROC curve.
     Does your answer to the previous exercise hold for the testing data as well?
     Explain your reasoning.
     Note: If you haven't yet done so, you'll need to first train your workflows on the training data with the following, and then use these fit objects to calculate predictions for the test data.
 
-```{r eval=FALSE}
+```{r eval=TRUE}
 gss16_fit_1 <- gss16_wflow_1 %>%
   fit(gss16_train)
 
 gss16_fit_2 <- gss16_wflow_2 %>%
   fit(gss16_train)
 ```
+
+``` {r}
+gss16_test_pred_1 <- predict(gss16_fit_1, new_data = gss16_test, type = "prob") %>% # predicts the probability of advfront being "Agree" or "Not agree" using the model on the testing data
+  bind_cols(gss16_test %>% select(advfront)) # outputs the predicted probabilities of Agree or Not agree next to advfront (truth)
+
+#gss16_test_pred_1
+
+gss16_test_pred_1 %>%         # prints the area under the ROC  curve value
+ roc_auc(
+ truth = advfront, 
+ .pred_Agree)                 # predicted quantities
+
+gss16_test_pred_1 %>%         # creates the curve
+ roc_curve(
+ truth = advfront, 
+ .pred_Agree) %>%              # predicted quantities
+ autoplot() + 
+  labs(title = "ROC Curve Model 1")
+```
+
+```{r}
+
+
+gss16_test_pred_2 <- predict(gss16_fit_2, new_data = gss16_test, type = "prob") %>% # predicts the probability of advfront being "Agree" or "Not agree" using the model on the testing data
+  bind_cols(gss16_test %>% select(advfront)) # outputs the predicted probabilities of Agree or Not agree next to advfront (truth)
+
+gss16_test_pred_2 %>%         # prints the area under the ROC  curve value
+ roc_auc(
+ truth = advfront, 
+ .pred_Agree)                 # predicted quantities
+
+gss16_test_pred_2 %>%         # creates the curve
+ roc_curve(
+ truth = advfront, 
+ .pred_Agree) %>%              # predicted quantities
+ autoplot() +
+  labs(title = "ROC Curve Model 2")
+
+```
+
+***No, my answer to the previous exercise (model 2 performs better) does not hold on the testing data. On the testing data, model 1 (`roc_auc` = 0.642) performs better than model 2 (`roc_auc` = 0.639) as the area under the ROC curve is slightly closer to 1 for model 1.***
 
 🧶 ✅ ⬆️ Knit, *commit, and push your changes to GitHub with an appropriate commit message. Make sure to commit and push all changed files so that your Git pane is cleared up afterwards.*
 
